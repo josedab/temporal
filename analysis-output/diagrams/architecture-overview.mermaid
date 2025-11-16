@@ -1,0 +1,92 @@
+# Temporal Server Architecture Overview
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        SDK[Temporal SDK<br/>Go/Java/TypeScript/Python]
+        CLI[Temporal CLI]
+        UI[Temporal Web UI]
+    end
+    
+    subgraph "Frontend Service"
+        FE[Frontend Service<br/>Port 7233 gRPC<br/>Port 7243 HTTP]
+        FE_AUTH[Authentication /<br/> Authorization]
+        FE_RL[Rate Limiting]
+        FE_ROUTER[Request Routing]
+    end
+    
+    subgraph "Core Services"
+        HISTORY[History Service<br/>Workflow State Engine]
+        MATCHING[Matching Service<br/>Task Queue Management]
+        WORKER[Worker Service<br/>System Workflows]
+    end
+    
+    subgraph "History Service Details"
+        H_ENGINE[History Engine]
+        H_SHARD[Shard Manager]
+        H_QUEUE[Queue Processors]
+        H_REPL[Replication]
+    end
+    
+    subgraph "Matching Service Details"
+        M_MATCHER[Task Matcher]
+        M_QUEUE[Task Queues]
+        M_SYNC[Sync Match Logic]
+    end
+    
+    subgraph "Persistence Layer"
+        EXEC_STORE[(Execution Store<br/>Cassandra/MySQL/<br/>PostgreSQL/SQLite)]
+        VIS_STORE[(Visibility Store<br/>Elasticsearch/SQL)]
+    end
+    
+    subgraph "Infrastructure"
+        MEMBERSHIP[Ringpop Membership]
+        METRICS[Metrics<br/>Prometheus/OTel]
+        LOGGING[Logging<br/>Zap]
+    end
+    
+    SDK --> FE
+    CLI --> FE
+    UI --> FE
+    
+    FE --> FE_AUTH
+    FE --> FE_RL
+    FE --> FE_ROUTER
+    FE_ROUTER --> HISTORY
+    FE_ROUTER --> MATCHING
+    
+    HISTORY --> H_ENGINE
+    HISTORY --> H_SHARD
+    HISTORY --> H_QUEUE
+    HISTORY --> H_REPL
+    
+    MATCHING --> M_MATCHER
+    MATCHING --> M_QUEUE
+    MATCHING --> M_SYNC
+    
+    HISTORY --> EXEC_STORE
+    HISTORY --> VIS_STORE
+    MATCHING --> EXEC_STORE
+    
+    HISTORY --> MEMBERSHIP
+    MATCHING --> MEMBERSHIP
+    WORKER --> MEMBERSHIP
+    FE --> MEMBERSHIP
+    
+    HISTORY --> METRICS
+    MATCHING --> METRICS
+    WORKER --> METRICS
+    FE --> METRICS
+    
+    HISTORY --> LOGGING
+    MATCHING --> LOGGING
+    WORKER --> LOGGING
+    FE --> LOGGING
+    
+    style FE fill:#e1f5ff
+    style HISTORY fill:#ffe1e1
+    style MATCHING fill:#e1ffe1
+    style WORKER fill:#fff4e1
+    style EXEC_STORE fill:#f0f0f0
+    style VIS_STORE fill:#f0f0f0
+```

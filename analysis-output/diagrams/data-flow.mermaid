@@ -1,0 +1,63 @@
+# Workflow Execution Data Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Frontend
+    participant History
+    participant Matching
+    participant Worker
+    participant DB as Database
+    
+    Note over Client,DB: 1. Start Workflow
+    Client->>Frontend: StartWorkflowExecution
+    Frontend->>Frontend: Validate Request
+    Frontend->>History: Route to Shard
+    History->>History: Generate Events<br/>(WorkflowExecutionStarted,<br/>WorkflowTaskScheduled)
+    History->>DB: Persist Events + Mutable State + Transfer Task
+    DB-->>History: Success
+    History->>Matching: AddWorkflowTask
+    Matching->>Matching: Try Sync Match
+    History-->>Frontend: RunID
+    Frontend-->>Client: Workflow Started
+    
+    Note over Client,DB: 2. Worker Polls for Task
+    Worker->>Matching: PollWorkflowTaskQueue (long-poll)
+    Matching->>Matching: Worker waiting...
+    Note over Matching: Sync Match!<br/>(< 10ms)
+    Matching-->>Worker: Workflow Task
+    
+    Note over Client,DB: 3. Execute Workflow Code
+    Worker->>Worker: Replay History
+    Worker->>Worker: Execute Workflow Logic
+    Worker->>Worker: Yield Commands<br/>(ScheduleActivityTask)
+    Worker->>Frontend: RespondWorkflowTaskCompleted(commands)
+    
+    Note over Client,DB: 4. Process Commands
+    Frontend->>History: Process Commands
+    History->>History: Generate Events<br/>(WorkflowTaskCompleted,<br/>ActivityTaskScheduled)
+    History->>DB: Persist Events + Transfer Task
+    History->>Matching: AddActivityTask
+    Matching->>Matching: Try Sync Match
+    
+    Note over Client,DB: 5. Execute Activity
+    Worker->>Matching: PollActivityTaskQueue
+    Matching-->>Worker: Activity Task (sync match)
+    Worker->>Worker: Execute Activity<br/>(Side Effects OK!)
+    Worker->>Frontend: RespondActivityTaskCompleted(result)
+    Frontend->>History: Activity Completed
+    History->>History: Generate Events<br/>(ActivityTaskCompleted)
+    History->>DB: Persist Events
+    History->>Matching: AddWorkflowTask (react to completion)
+    
+    Note over Client,DB: 6. Complete Workflow
+    Worker->>Matching: PollWorkflowTaskQueue
+    Matching-->>Worker: Workflow Task
+    Worker->>Worker: Process Activity Result
+    Worker->>Worker: Workflow Returns
+    Worker->>Frontend: RespondWorkflowTaskCompleted<br/>(CompleteWorkflowExecution)
+    Frontend->>History: Complete Workflow
+    History->>History: Generate Event<br/>(WorkflowExecutionCompleted)
+    History->>DB: Persist Final Events
+    History-->>Frontend: Success
+```

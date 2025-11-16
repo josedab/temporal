@@ -1,0 +1,97 @@
+# Persistence Layer Architecture
+
+```mermaid
+graph TB
+    subgraph "Service Layer"
+        HISTORY[History Service]
+        MATCHING[Matching Service]
+        WORKER[Worker Service]
+    end
+    
+    subgraph "Persistence Client Layer"
+        PC[Persistence Client<br/>with Rate Limiting]
+    end
+    
+    subgraph "Execution Store Interfaces"
+        EXEC_MGR[Execution Manager]
+        SHARD_MGR[Shard Manager]
+        TASK_MGR[Task Manager]
+    end
+    
+    subgraph "Visibility Store Interface"
+        VIS_MGR[Visibility Manager]
+    end
+    
+    subgraph "Database Implementations"
+        direction LR
+        CASS[Cassandra Driver]
+        PG[PostgreSQL Driver<br/>pgx]
+        MYSQL[MySQL Driver]
+        SQLITE[SQLite Driver]
+    end
+    
+    subgraph "Visibility Implementations"
+        ES[Elasticsearch Client]
+        SQL_VIS[SQL Visibility]
+    end
+    
+    subgraph "Physical Databases"
+        CASS_DB[(Cassandra<br/>Cluster)]
+        PG_DB[(PostgreSQL<br/>Instance)]
+        MYSQL_DB[(MySQL<br/>Instance)]
+        SQLITE_DB[(SQLite<br/>File)]
+        ES_CLUSTER[(Elasticsearch<br/>Cluster)]
+    end
+    
+    subgraph "Data Tables/Collections"
+        direction LR
+        EXECUTIONS[executions<br/>Workflow State]
+        HISTORY_NODE[history_node<br/>Event Batches]
+        TRANSFER_TASKS[transfer_tasks<br/>Async Tasks]
+        TIMER_TASKS[timer_tasks<br/>Scheduled Tasks]
+        VIS_RECORDS[visibility<br/>Search Records]
+    end
+    
+    HISTORY --> PC
+    MATCHING --> PC
+    WORKER --> PC
+    
+    PC --> EXEC_MGR
+    PC --> SHARD_MGR
+    PC --> TASK_MGR
+    PC --> VIS_MGR
+    
+    EXEC_MGR --> CASS
+    EXEC_MGR --> PG
+    EXEC_MGR --> MYSQL
+    EXEC_MGR --> SQLITE
+    
+    VIS_MGR --> ES
+    VIS_MGR --> SQL_VIS
+    
+    CASS --> CASS_DB
+    PG --> PG_DB
+    MYSQL --> MYSQL_DB
+    SQLITE --> SQLITE_DB
+    
+    ES --> ES_CLUSTER
+    SQL_VIS --> PG_DB
+    SQL_VIS --> MYSQL_DB
+    
+    CASS_DB --> EXECUTIONS
+    CASS_DB --> HISTORY_NODE
+    CASS_DB --> TRANSFER_TASKS
+    CASS_DB --> TIMER_TASKS
+    
+    ES_CLUSTER --> VIS_RECORDS
+    
+    style HISTORY fill:#ffe1e1
+    style MATCHING fill:#e1ffe1
+    style WORKER fill:#fff4e1
+    style PC fill:#e1f5ff
+    style CASS_DB fill:#f0f0f0
+    style PG_DB fill:#f0f0f0
+    style MYSQL_DB fill:#f0f0f0
+    style SQLITE_DB fill:#f0f0f0
+    style ES_CLUSTER fill:#f0f0f0
+```
